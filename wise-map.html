@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Wise · Place Map</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<style>
+  @font-face {
+    font-family: 'LocalFont';
+    src: local('Helvetica Neue'), local('HelveticaNeue'), local('Helvetica');
+    font-weight: normal;
+  }
+  @font-face {
+    font-family: 'LocalFont';
+    src: local('Helvetica Neue Bold'), local('HelveticaNeue-Bold'), local('Helvetica-Bold');
+    font-weight: bold;
+  }
+
+  :root {
+    --bg:       #EDEFEC;
+    --primary:  #163300;
+    --spot:     #9FE870;
+    --white:    #ffffff;
+    --mid:      #c8ccc5;
+    --soft:     #e0e3de;
+    --text-dim: #5a6657;
+    --radius:   14px;
+    --shadow:   0 4px 24px rgba(22,51,0,0.10);
+    --font:     'LocalFont', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--primary);
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #topbar {
+    background: var(--primary);
+    color: var(--white);
+    padding: 0 20px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 1000;
+    gap: 12px;
+  }
+
+  #search-wrap {
+    flex: 1;
+    max-width: 380px;
+    position: relative;
+  }
+
+  #search-input {
+    width: 100%;
+    background: rgba(255,255,255,0.10);
+    border: 1.5px solid rgba(159,232,112,0.30);
+    border-radius: 8px;
+    color: var(--white);
+    padding: 8px 36px 8px 12px;
+    font-family: var(--font);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  #search-input::placeholder { color: rgba(255,255,255,0.45); }
+  #search-input:focus {
+    border-color: var(--spot);
+    background: rgba(255,255,255,0.14);
+  }
+
+  #search-btn {
+    position: absolute;
+    right: 8px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none;
+    cursor: pointer; padding: 2px;
+    color: var(--spot);
+    display: flex; align-items: center;
+  }
+
+  #suggestions {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0; right: 0;
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    z-index: 9999;
+    display: none;
+  }
+  #suggestions.open { display: block; }
+  .sug-item {
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--primary);
+    cursor: pointer;
+    border-bottom: 1px solid var(--soft);
+    transition: background 0.15s;
+  }
+  .sug-item:last-child { border-bottom: none; }
+  .sug-item:hover { background: var(--bg); }
+
+  #pin-count-badge {
+    background: var(--spot);
+    color: var(--primary);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: bold;
+    white-space: nowrap;
+    flex-shrink: 0;
+    letter-spacing: -0.2px;
+  }
+
+  #map {
+    flex: 1;
+    width: 100%;
+    position: relative;
+  }
+
+  .leaflet-tile { filter: saturate(0.7) brightness(1.04); }
+
+  .wise-marker {
+    width: 28px; height: 28px;
+    background: var(--primary);
+    border: 3px solid var(--spot);
+    border-radius: 50% 50% 50% 4px;
+    transform: rotate(-45deg) translate(-4px, -4px);
+    box-shadow: 0 3px 10px rgba(22,51,0,0.35);
+    transition: transform 0.2s;
+    cursor: pointer;
+  }
+  .wise-marker:hover {
+    transform: rotate(-45deg) translate(-4px,-4px) scale(1.25);
+  }
+
+  #bottom-panel {
+    background: var(--white);
+    border-top: 1px solid var(--soft);
+    padding: 14px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-shrink: 0;
+    z-index: 500;
+    box-shadow: 0 -4px 20px rgba(22,51,0,0.07);
+  }
+
+  #url-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #url-label {
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  #url-display {
+    flex: 1;
+    background: var(--bg);
+    border: 1.5px solid var(--soft);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 12px;
+    color: var(--primary);
+    font-family: 'Courier New', monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: text;
+    user-select: all;
+  }
+
+  #copy-btn {
+    background: var(--primary);
+    color: var(--spot);
+    border: none;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, transform 0.1s;
+    flex-shrink: 0;
+  }
+  #copy-btn:hover { background: #1f4a00; }
+  #copy-btn:active { transform: scale(0.96); }
+  #copy-btn.copied { background: var(--spot); color: var(--primary); }
+
+  #hint-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+  #hint-row svg { flex-shrink: 0; }
+
+  .pin-tooltip {
+    background: var(--primary) !important;
+    color: var(--white) !important;
+    border: 2px solid var(--spot) !important;
+    border-radius: 10px !important;
+    padding: 10px 14px !important;
+    font-family: var(--font) !important;
+    font-size: 13px !important;
+    box-shadow: 0 6px 20px rgba(22,51,0,0.25) !important;
+    max-width: 220px;
+    line-height: 1.5;
+    pointer-events: none;
+  }
+  .pin-tooltip::before { display: none !important; }
+  .tooltip-name {
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--spot);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .tooltip-meta {
+    font-size: 11px;
+    opacity: 0.75;
+    margin-top: 4px;
+    display: block;
+  }
+
+  /* MODAL */
+  #modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(22,51,0,0.40);
+    z-index: 9000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    padding: 20px;
+  }
+  #modal-overlay.open { display: flex; }
+  #modal {
+    background: var(--white);
+    border-radius: 28px;
+    padding: 28px 24px 32px;
+    width: min(100%, 400px);
+    box-shadow: 0 24px 60px rgba(22,51,0,0.22);
+    animation: modalIn 0.28s cubic-bezier(0.22,1,0.36,1);
+  }
+  @keyframes modalIn {
+    from { transform: scale(0.94) translateY(12px); opacity: 0; }
+    to   { transform: scale(1)    translateY(0);    opacity: 1; }
+  }
+  #modal-flag-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 24px;
+  }
+  #modal-flag {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12), 0 0 0 3px var(--white), 0 0 0 5px var(--soft);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 48px;
+    line-height: 1;
+    background: var(--bg);
+    flex-shrink: 0;
+  }
+  #modal-title {
+    font-size: 13px;
+    font-weight: normal;
+    color: var(--text-dim);
+    text-align: center;
+    margin-bottom: 4px;
+    letter-spacing: 0.02em;
+  }
+  #modal-city {
+    font-size: 26px;
+    font-weight: bold;
+    color: var(--primary);
+    text-align: center;
+    letter-spacing: -0.8px;
+    margin-bottom: 28px;
+  }
+  #modal-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    background: var(--bg);
+    border-radius: 16px;
+    padding: 18px 20px;
+    margin-bottom: 24px;
+  }
+  .meta-block { display: flex; flex-direction: column; gap: 5px; }
+  .meta-label { font-size: 12px; color: var(--text-dim); font-weight: normal; }
+  .meta-value { font-size: 22px; font-weight: bold; color: var(--primary); letter-spacing: -0.5px; line-height: 1.1; }
+  .modal-btn-row { display: flex; flex-direction: column; gap: 10px; }
+  .modal-btn {
+    width: 100%;
+    padding: 15px;
+    border-radius: 14px;
+    font-family: var(--font);
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    border: none;
+    transition: 0.15s;
+    letter-spacing: -0.2px;
+    text-decoration: none;
+    display: block;
+    text-align: center;
+  }
+  .modal-btn.primary { background: var(--primary); color: var(--spot); }
+  .modal-btn.primary:hover { background: #1f4a00; }
+  .modal-btn.primary:active { transform: scale(0.98); }
+  .modal-btn.secondary { background: transparent; color: var(--text-dim); font-weight: normal; font-size: 14px; }
+  .modal-btn.secondary:hover { color: var(--primary); }
+
+  #toast {
+    position: fixed;
+    top: 70px; left: 50%;
+    transform: translateX(-50%) translateY(-10px);
+    background: var(--primary);
+    color: var(--white);
+    padding: 10px 20px;
+    border-radius: 30px;
+    font-size: 13px;
+    font-weight: bold;
+    box-shadow: 0 4px 20px rgba(22,51,0,0.25);
+    border: 2px solid var(--spot);
+    z-index: 8000;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast .name-hi { color: var(--spot); }
+
+  #legend {
+    position: absolute;
+    bottom: 16px; right: 16px;
+    background: var(--white);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 11px;
+    color: var(--text-dim);
+    box-shadow: var(--shadow);
+    z-index: 500;
+    line-height: 1.8;
+  }
+  #legend strong { color: var(--primary); font-size: 12px; display: block; margin-bottom: 2px; }
+
+  @media (max-width: 480px) {
+    #topbar { padding: 0 12px; gap: 8px; }
+    #pin-count-badge { display: none; }
+    #bottom-panel { padding: 10px 12px; gap: 8px; }
+    #url-label { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <div id="search-wrap">
+    <input id="search-input" type="text" placeholder="Search a city… e.g. Paris" autocomplete="off" spellcheck="false"/>
+    <button id="search-btn" aria-label="Search">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/>
+      </svg>
+    </button>
+    <div id="suggestions"></div>
+  </div>
+  <div id="pin-count-badge">0 visitors</div>
+</div>
+
+<div id="map"></div>
+<div id="toast"></div>
+
+<div id="legend">
+  <strong>Hover a pin</strong>
+  Name · Time · Date
+</div>
+
+<div id="bottom-panel">
+  <div id="url-row">
+    <span id="url-label">NFC URL</span>
+    <div id="url-display">Search a city to generate your NFC URL</div>
+    <button id="copy-btn">Copy URL</button>
+  </div>
+  <div id="hint-row">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="1" fill="currentColor"/>
+    </svg>
+    Copy this URL and encode it to your NFC tag. Every tap will drop a pin and show the visitor's details on hover.
+  </div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal">
+    <div id="modal-flag-wrap">
+      <div id="modal-flag">🏳️</div>
+    </div>
+    <div id="modal-title">You've arrived in</div>
+    <div id="modal-city">Paris</div>
+    <div id="modal-meta">
+      <div class="meta-block">
+        <span class="meta-label">Date Collected</span>
+        <span class="meta-value" id="modal-date">—</span>
+      </div>
+      <div class="meta-block" style="text-align:right">
+        <span class="meta-label">Time Collected</span>
+        <span class="meta-value" id="modal-time">—</span>
+      </div>
+    </div>
+    <div class="modal-btn-row">
+      <a class="modal-btn primary" id="modal-collect" href="#">Collect token</a>
+      <button class="modal-btn secondary" id="modal-close">Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const EARTH_NAMES = [
+  'Obsidian','Granite','Basalt','Flint','Quartz','Amber','Slate','Clay',
+  'Marble','Pumice','Jade','Opal','Onyx','Shale','Chalk','Gypsum',
+  'Mica','Coral','Dolomite','Agate','Jasper','Topaz','Garnet','Pyrite',
+  'Feldspar','Calcite','Zircon','Fluorite','Gneiss','Schist','Tufa',
+  'Perlite','Scoria','Loess','Marl','Chert','Hornite','Dunite'
+];
+
+function hashStr(s) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0);
+}
+
+function getDeviceId() {
+  let id = localStorage.getItem('wise_device_id');
+  if (!id) {
+    const seed = [
+      navigator.userAgent, navigator.language,
+      screen.width + 'x' + screen.height, screen.colorDepth,
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+      navigator.hardwareConcurrency || '', navigator.deviceMemory || ''
+    ].join('|');
+    id = hashStr(seed).toString(16);
+    localStorage.setItem('wise_device_id', id);
+  }
+  return id;
+}
+
+function deviceName(deviceId) {
+  return EARTH_NAMES[hashStr(deviceId) % EARTH_NAMES.length];
+}
+
+function locationKey(lat, lng) {
+  return `wise_pins_${parseFloat(lat).toFixed(4)}_${parseFloat(lng).toFixed(4)}`;
+}
+
+function loadPins(lat, lng) {
+  try { return JSON.parse(localStorage.getItem(locationKey(lat, lng)) || '[]'); }
+  catch { return []; }
+}
+
+function savePins(lat, lng, pins) {
+  localStorage.setItem(locationKey(lat, lng), JSON.stringify(pins));
+}
+
+function registerCity(lat, lng, cityName) {
+  const registryKey = 'wise_visited_cities';
+  let cities = [];
+  try { cities = JSON.parse(localStorage.getItem(registryKey) || '[]'); } catch {}
+  const key = locationKey(lat, lng);
+  if (!cities.find(c => c.key === key)) {
+    cities.push({ key, lat, lng, cityName });
+    localStorage.setItem(registryKey, JSON.stringify(cities));
+  }
+}
+
+function loadAllVisitedCities() {
+  try { return JSON.parse(localStorage.getItem('wise_visited_cities') || '[]'); } catch { return []; }
+}
+
+function recordVisit(lat, lng, cityName) {
+  registerCity(lat, lng, cityName || '');
+  const pins = loadPins(lat, lng);
+  const deviceId = getDeviceId();
+  const name = deviceName(deviceId);
+  const now = new Date();
+  const visit = { deviceId, name, ts: now.toISOString(), lat, lng };
+  pins.push(visit);
+  savePins(lat, lng, pins);
+  return { pins, visit };
+}
+
+function fmtTime(ts) {
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+function fmtDate(ts) {
+  return new Date(ts).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+const map = L.map('map', { center: [48.8566, 2.3522], zoom: 13, zoomControl: false });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  maxZoom: 19
+}).addTo(map);
+L.control.zoom({ position: 'topright' }).addTo(map);
+
+function makeIcon() {
+  return L.divIcon({
+    className: '',
+    html: '<div class="wise-marker"></div>',
+    iconSize: [28, 28], iconAnchor: [10, 24], tooltipAnchor: [4, -18]
+  });
+}
+
+let pinCount = 0;
+function updateBadge() {
+  const b = document.getElementById('pin-count-badge');
+  b.textContent = pinCount === 1 ? '1 visitor' : `${pinCount} visitors`;
+}
+
+let _modalCityName = '';
+let _modalTs = '';
+
+function openModal(cityName, ts) {
+  _modalCityName = cityName;
+  _modalTs = ts;
+  const now = new Date(ts);
+  document.getElementById('modal-city').textContent = cityName;
+  document.getElementById('modal-flag').textContent = cityFlag(cityName);
+  const d = String(now.getDate()).padStart(2,'0');
+  const m = String(now.getMonth()+1).padStart(2,'0');
+  const y = now.getFullYear();
+  document.getElementById('modal-date').textContent = `${d}.${m}.${y}`;
+  const hh = String(now.getHours()).padStart(2,'0');
+  const mm = String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('modal-time').textContent = `${hh}:${mm}`;
+
+  // Build passport URL with city info
+  const passportUrl = buildPassportURL(cityName, ts);
+  document.getElementById('modal-collect').href = passportUrl;
+
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function buildPassportURL(cityName, ts) {
+  // passport.html lives alongside this file
+  const base = location.origin + location.pathname.replace('wise-map.html', 'wise-passport.html');
+  return `${base}?city=${encodeURIComponent(cityName)}&ts=${encodeURIComponent(ts)}&from=map`;
+}
+
+function dropPin(lat, lng, name, ts, animate = false) {
+  const marker = L.marker([lat, lng], { icon: makeIcon() }).addTo(map);
+  const tip = `<span class="tooltip-name">${name}</span>${fmtTime(ts)}<br><span class="tooltip-meta">${fmtDate(ts)}</span>`;
+  marker.bindTooltip(tip, { className: 'pin-tooltip', direction: 'top', sticky: false, offset: [0, -8] });
+  marker.on('click', () => openModal(currentCity, ts));
+  if (animate) {
+    const el = marker.getElement();
+    if (el) {
+      el.style.transition = 'opacity 0.4s, transform 0.4s';
+      el.style.opacity = '0'; el.style.transform = 'scale(0.5)';
+      requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'scale(1)'; });
+    }
+  }
+  pinCount++;
+  updateBadge();
+  return marker;
+}
+
+const params = new URLSearchParams(location.search);
+const urlLat = params.get('lat');
+const urlLng = params.get('lng');
+const urlCity = params.get('city') || 'this location';
+
+let currentLat = urlLat ? parseFloat(urlLat) : 48.8566;
+let currentLng = urlLng ? parseFloat(urlLng) : 2.3522;
+let currentCity = decodeURIComponent(urlCity);
+
+function buildURL(lat, lng, city) {
+  const base = location.origin + location.pathname;
+  return `${base}?lat=${lat.toFixed(6)}&lng=${lng.toFixed(6)}&city=${encodeURIComponent(city)}`;
+}
+
+function updateURLDisplay(lat, lng, city) {
+  const url = buildURL(lat, lng, city);
+  const el = document.getElementById('url-display');
+  if (el) el.textContent = url;
+}
+
+const renderedLocations = new Set();
+
+function renderExistingPins(lat, lng) {
+  const key = locationKey(lat, lng);
+  if (renderedLocations.has(key)) return;
+  renderedLocations.add(key);
+  loadPins(lat, lng).forEach(p => dropPin(p.lat, p.lng, p.name, p.ts, false));
+}
+
+function showToast(name) {
+  const t = document.getElementById('toast');
+  t.innerHTML = `Welcome, <span class="name-hi">${name}</span> 🌍`;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+const isVisitorMode = !!(urlLat && urlLng);
+
+if (isVisitorMode) {
+  document.getElementById('topbar').style.display = 'none';
+  document.getElementById('bottom-panel').style.display = 'none';
+}
+
+if (isVisitorMode) {
+  map.setView([currentLat, currentLng], 14);
+  updateURLDisplay(currentLat, currentLng, currentCity);
+  loadAllVisitedCities().forEach(c => {
+    if (c.key !== locationKey(currentLat, currentLng)) renderExistingPins(c.lat, c.lng);
+  });
+  renderExistingPins(currentLat, currentLng);
+  const { visit } = recordVisit(currentLat, currentLng, currentCity);
+  dropPin(currentLat, currentLng, visit.name, visit.ts, true);
+  showToast(visit.name);
+  setTimeout(() => openModal(currentCity, visit.ts), 800);
+} else {
+  updateURLDisplay(currentLat, currentLng, currentCity);
+  loadAllVisitedCities().forEach(c => renderExistingPins(c.lat, c.lng));
+}
+
+document.getElementById('modal-close').addEventListener('click', () => {
+  document.getElementById('modal-overlay').classList.remove('open');
+});
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay'))
+    document.getElementById('modal-overlay').classList.remove('open');
+});
+
+document.getElementById('copy-btn').addEventListener('click', () => {
+  const url = buildURL(currentLat, currentLng, currentCity);
+  if (navigator.clipboard) navigator.clipboard.writeText(url);
+  else {
+    const ta = document.createElement('textarea');
+    ta.value = url; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+  }
+  const btn = document.getElementById('copy-btn');
+  const orig = btn.textContent;
+  btn.textContent = 'Copied ✓'; btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 2000);
+});
+
+const CITIES = [
+  { name:'Abu Dhabi', country:'UAE', lat:24.4539, lng:54.3773 },
+  { name:'Amsterdam', country:'Netherlands', lat:52.3676, lng:4.9041 },
+  { name:'Athens', country:'Greece', lat:37.9838, lng:23.7275 },
+  { name:'Auckland', country:'New Zealand', lat:-36.8485, lng:174.7633 },
+  { name:'Bangkok', country:'Thailand', lat:13.7563, lng:100.5018 },
+  { name:'Barcelona', country:'Spain', lat:41.3851, lng:2.1734 },
+  { name:'Beijing', country:'China', lat:39.9042, lng:116.4074 },
+  { name:'Berlin', country:'Germany', lat:52.5200, lng:13.4050 },
+  { name:'Bogotá', country:'Colombia', lat:4.7110, lng:-74.0721 },
+  { name:'Brisbane', country:'Australia', lat:-27.4698, lng:153.0251 },
+  { name:'Brussels', country:'Belgium', lat:50.8503, lng:4.3517 },
+  { name:'Budapest', country:'Hungary', lat:47.4979, lng:19.0402 },
+  { name:'Buenos Aires', country:'Argentina', lat:-34.6037, lng:-58.3816 },
+  { name:'Cairo', country:'Egypt', lat:30.0444, lng:31.2357 },
+  { name:'Cape Town', country:'South Africa', lat:-33.9249, lng:18.4241 },
+  { name:'Chicago', country:'USA', lat:41.8781, lng:-87.6298 },
+  { name:'Copenhagen', country:'Denmark', lat:55.6761, lng:12.5683 },
+  { name:'Delhi', country:'India', lat:28.6139, lng:77.2090 },
+  { name:'Dubai', country:'UAE', lat:25.2048, lng:55.2708 },
+  { name:'Dublin', country:'Ireland', lat:53.3498, lng:-6.2603 },
+  { name:'Edinburgh', country:'Scotland', lat:55.9533, lng:-3.1883 },
+  { name:'Frankfurt', country:'Germany', lat:50.1109, lng:8.6821 },
+  { name:'Geneva', country:'Switzerland', lat:46.2044, lng:6.1432 },
+  { name:'Helsinki', country:'Finland', lat:60.1699, lng:24.9384 },
+  { name:'Ho Chi Minh City', country:'Vietnam', lat:10.8231, lng:106.6297 },
+  { name:'Hong Kong', country:'China', lat:22.3193, lng:114.1694 },
+  { name:'Istanbul', country:'Turkey', lat:41.0082, lng:28.9784 },
+  { name:'Jakarta', country:'Indonesia', lat:-6.2088, lng:106.8456 },
+  { name:'Johannesburg', country:'South Africa', lat:-26.2041, lng:28.0473 },
+  { name:'Karachi', country:'Pakistan', lat:24.8607, lng:67.0011 },
+  { name:'Kuala Lumpur', country:'Malaysia', lat:3.1390, lng:101.6869 },
+  { name:'Lagos', country:'Nigeria', lat:6.5244, lng:3.3792 },
+  { name:'Lima', country:'Peru', lat:-12.0464, lng:-77.0428 },
+  { name:'Lisbon', country:'Portugal', lat:38.7169, lng:-9.1399 },
+  { name:'London', country:'UK', lat:51.5074, lng:-0.1278 },
+  { name:'Los Angeles', country:'USA', lat:34.0522, lng:-118.2437 },
+  { name:'Madrid', country:'Spain', lat:40.4168, lng:-3.7038 },
+  { name:'Manila', country:'Philippines', lat:14.5995, lng:120.9842 },
+  { name:'Melbourne', country:'Australia', lat:-37.8136, lng:144.9631 },
+  { name:'Mexico City', country:'Mexico', lat:19.4326, lng:-99.1332 },
+  { name:'Miami', country:'USA', lat:25.7617, lng:-80.1918 },
+  { name:'Milan', country:'Italy', lat:45.4642, lng:9.1900 },
+  { name:'Montreal', country:'Canada', lat:45.5017, lng:-73.5673 },
+  { name:'Moscow', country:'Russia', lat:55.7558, lng:37.6173 },
+  { name:'Mumbai', country:'India', lat:19.0760, lng:72.8777 },
+  { name:'Nairobi', country:'Kenya', lat:-1.2921, lng:36.8219 },
+  { name:'New York', country:'USA', lat:40.7128, lng:-74.0060 },
+  { name:'Oslo', country:'Norway', lat:59.9139, lng:10.7522 },
+  { name:'Paris', country:'France', lat:48.8566, lng:2.3522 },
+  { name:'Prague', country:'Czechia', lat:50.0755, lng:14.4378 },
+  { name:'Riyadh', country:'Saudi Arabia', lat:24.6877, lng:46.7219 },
+  { name:'Rome', country:'Italy', lat:41.9028, lng:12.4964 },
+  { name:'San Francisco', country:'USA', lat:37.7749, lng:-122.4194 },
+  { name:'Santiago', country:'Chile', lat:-33.4489, lng:-70.6693 },
+  { name:'São Paulo', country:'Brazil', lat:-23.5505, lng:-46.6333 },
+  { name:'Seoul', country:'South Korea', lat:37.5665, lng:126.9780 },
+  { name:'Shanghai', country:'China', lat:31.2304, lng:121.4737 },
+  { name:'Singapore', country:'Singapore', lat:1.3521, lng:103.8198 },
+  { name:'Stockholm', country:'Sweden', lat:59.3293, lng:18.0686 },
+  { name:'Sydney', country:'Australia', lat:-33.8688, lng:151.2093 },
+  { name:'Taipei', country:'Taiwan', lat:25.0330, lng:121.5654 },
+  { name:'Tehran', country:'Iran', lat:35.6892, lng:51.3890 },
+  { name:'Tel Aviv', country:'Israel', lat:32.0853, lng:34.7818 },
+  { name:'Tokyo', country:'Japan', lat:35.6762, lng:139.6503 },
+  { name:'Toronto', country:'Canada', lat:43.6532, lng:-79.3832 },
+  { name:'Vancouver', country:'Canada', lat:49.2827, lng:-123.1207 },
+  { name:'Vienna', country:'Austria', lat:48.2082, lng:16.3738 },
+  { name:'Warsaw', country:'Poland', lat:52.2297, lng:21.0122 },
+  { name:'Washington DC', country:'USA', lat:38.9072, lng:-77.0369 },
+  { name:'Zurich', country:'Switzerland', lat:47.3769, lng:8.5417 },
+];
+
+const CITY_FLAGS = {
+  'Abu Dhabi':'🇦🇪','Amsterdam':'🇳🇱','Athens':'🇬🇷','Auckland':'🇳🇿',
+  'Bangkok':'🇹🇭','Barcelona':'🇪🇸','Beijing':'🇨🇳','Berlin':'🇩🇪',
+  'Bogotá':'🇨🇴','Brisbane':'🇦🇺','Brussels':'🇧🇪','Budapest':'🇭🇺',
+  'Buenos Aires':'🇦🇷','Cairo':'🇪🇬','Cape Town':'🇿🇦','Chicago':'🇺🇸',
+  'Copenhagen':'🇩🇰','Delhi':'🇮🇳','Dubai':'🇦🇪','Dublin':'🇮🇪',
+  'Edinburgh':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','Frankfurt':'🇩🇪','Geneva':'🇨🇭','Helsinki':'🇫🇮',
+  'Ho Chi Minh City':'🇻🇳','Hong Kong':'🇭🇰','Istanbul':'🇹🇷','Jakarta':'🇮🇩',
+  'Johannesburg':'🇿🇦','Karachi':'🇵🇰','Kuala Lumpur':'🇲🇾','Lagos':'🇳🇬',
+  'Lima':'🇵🇪','Lisbon':'🇵🇹','London':'🇬🇧','Los Angeles':'🇺🇸',
+  'Madrid':'🇪🇸','Manila':'🇵🇭','Melbourne':'🇦🇺','Mexico City':'🇲🇽',
+  'Miami':'🇺🇸','Milan':'🇮🇹','Montreal':'🇨🇦','Moscow':'🇷🇺',
+  'Mumbai':'🇮🇳','Nairobi':'🇰🇪','New York':'🇺🇸','Oslo':'🇳🇴',
+  'Paris':'🇫🇷','Prague':'🇨🇿','Riyadh':'🇸🇦','Rome':'🇮🇹',
+  'San Francisco':'🇺🇸','Santiago':'🇨🇱','São Paulo':'🇧🇷','Seoul':'🇰🇷',
+  'Shanghai':'🇨🇳','Singapore':'🇸🇬','Stockholm':'🇸🇪','Sydney':'🇦🇺',
+  'Taipei':'🇹🇼','Tehran':'🇮🇷','Tel Aviv':'🇮🇱','Tokyo':'🇯🇵',
+  'Toronto':'🇨🇦','Vancouver':'🇨🇦','Vienna':'🇦🇹','Warsaw':'🇵🇱',
+  'Washington DC':'🇺🇸','Zurich':'🇨🇭',
+};
+
+function cityFlag(cityName) { return CITY_FLAGS[cityName] || '🌍'; }
+
+const searchInput = document.getElementById('search-input');
+const suggestionsEl = document.getElementById('suggestions');
+
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim().toLowerCase();
+  if (q.length < 1) { suggestionsEl.innerHTML = ''; suggestionsEl.classList.remove('open'); return; }
+  const matches = CITIES.filter(c => c.name.toLowerCase().includes(q) || c.country.toLowerCase().includes(q)).slice(0, 6);
+  renderSuggestions(matches);
+});
+
+function renderSuggestions(matches) {
+  suggestionsEl.innerHTML = '';
+  if (!matches.length) { suggestionsEl.classList.remove('open'); return; }
+  matches.forEach(city => {
+    const div = document.createElement('div');
+    div.className = 'sug-item';
+    div.textContent = `${city.name}, ${city.country}`;
+    div.addEventListener('click', () => selectCity(city));
+    suggestionsEl.appendChild(div);
+  });
+  suggestionsEl.classList.add('open');
+}
+
+function selectCity(city) {
+  currentLat = city.lat; currentLng = city.lng; currentCity = city.name;
+  map.flyTo([city.lat, city.lng], 13, { duration: 1.2 });
+  updateURLDisplay(city.lat, city.lng, city.name);
+  renderExistingPins(city.lat, city.lng);
+  searchInput.value = city.name;
+  suggestionsEl.innerHTML = ''; suggestionsEl.classList.remove('open');
+}
+
+document.getElementById('search-btn').addEventListener('click', () => {
+  const q = searchInput.value.trim().toLowerCase();
+  if (!q) return;
+  const matches = CITIES.filter(c => c.name.toLowerCase().includes(q)).slice(0, 6);
+  if (matches.length === 1) selectCity(matches[0]);
+  else renderSuggestions(matches);
+});
+
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const first = suggestionsEl.querySelector('.sug-item');
+    if (first) first.click();
+  }
+});
+
+document.addEventListener('click', e => {
+  if (!document.getElementById('search-wrap').contains(e.target))
+    suggestionsEl.classList.remove('open');
+});
+</script>
+</body>
+</html>

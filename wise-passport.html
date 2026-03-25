@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wise Passport</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/3/turn.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  background: #d6d1c8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  font-family: Georgia, serif;
+}
+
+#passport {
+  width: 560px;
+  height: 380px;
+  box-shadow: 0 24px 70px rgba(0,0,0,0.35);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.page {
+  width: 280px;
+  height: 380px;
+  overflow: hidden;
+  position: relative;
+}
+
+.p-left {
+  width: 100%; height: 100%;
+  background: #f0ebe0;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.p-left::before {
+  content: '';
+  position: absolute; top: 0; bottom: 0; left: 0; width: 28px;
+  background: linear-gradient(to right, rgba(0,0,0,0.08) 0%, transparent 100%);
+  pointer-events: none; z-index: 1;
+}
+
+.p-right {
+  width: 100%; height: 100%;
+  background: #f5f0e6;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.p-right::after {
+  content: '';
+  position: absolute; top: 0; bottom: 0; right: 0; width: 28px;
+  background: linear-gradient(to left, rgba(0,0,0,0.08) 0%, transparent 100%);
+  pointer-events: none; z-index: 1;
+}
+
+.fore-edge {
+  position: absolute; top: 4px; bottom: 4px; width: 5px;
+  background: repeating-linear-gradient(to bottom, #cdc5b0 0, #cdc5b0 1px, #e6deca 1px, #e6deca 4px);
+  pointer-events: none; z-index: 2;
+}
+.fore-edge.r { right: 0; border-radius: 0 2px 2px 0; }
+.fore-edge.l { left: 0;  border-radius: 2px 0 0 2px; }
+
+.pnum {
+  position: absolute; bottom: 16px;
+  font-size: 11px; letter-spacing: 0.18em;
+  color: rgba(26,46,26,0.22); font-family: monospace;
+}
+.pnum.r { right: 18px; }
+.pnum.l { left: 18px; }
+
+/* ============================
+   IDENTITY PAGE
+   ============================ */
+.identity-page {
+  width: 100%; height: 100%;
+  background: #f0ebe0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 32px;
+  position: relative;
+}
+
+.identity-inner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.photo-zone {
+  width: 100%;
+  flex: 1;
+  border: 1.5px dashed #c0392b;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s, background 0.2s;
+  min-height: 0;
+}
+.photo-zone:hover {
+  background: rgba(192,57,43,0.03);
+  border-color: #e04535;
+}
+
+.photo-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  user-select: none;
+}
+
+.photo-hint {
+  font-size: 9px;
+  color: #c0392b;
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+
+.ascii-canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  inset: 0;
+  display: none;
+}
+
+.name-fields {
+  width: 100%;
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.name-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.name-label {
+  font-size: 7px;
+  letter-spacing: 0.16em;
+  color: rgba(26,46,26,0.4);
+  font-family: 'Courier New', monospace;
+  text-transform: uppercase;
+}
+.name-value {
+  font-size: 10px;
+  font-family: 'Courier New', monospace;
+  color: #1a2e00;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border: none;
+  border-bottom: 1px solid rgba(26,46,26,0.15);
+  background: transparent;
+  outline: none;
+  width: 100%;
+  padding: 2px 0 3px;
+}
+.name-value::placeholder {
+  color: rgba(26,46,26,0.28);
+  font-weight: 400;
+}
+.name-group.right { text-align: right; }
+.name-group.right .name-value { text-align: right; }
+
+.save-btn {
+  margin-top: 10px;
+  padding: 9px 20px;
+  background: #9FE870;
+  color: #163300;
+  border: none;
+  border-radius: 999px;
+  font-size: 9px;
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  cursor: not-allowed;
+  opacity: 0.55;
+  transition: opacity 0.25s, transform 0.15s;
+  text-transform: uppercase;
+  align-self: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.save-btn.active { opacity: 1; cursor: pointer; }
+.save-btn.active:hover { transform: scale(1.03); }
+.save-btn.active:active { transform: scale(0.97); }
+
+/* ============================
+   CAMERA MODAL
+   ============================ */
+.camera-modal {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.88);
+  z-index: 9999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+}
+.camera-modal.open { display: flex; }
+
+.camera-container {
+  position: relative;
+  width: 320px; height: 400px;
+  background: #0a0a0a;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+.camera-video {
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+  transform: scaleX(-1);
+}
+.face-guide {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.face-oval {
+  width: 150px; height: 200px;
+  border: 2px dashed rgba(159,232,112,0.75);
+  border-radius: 50%;
+  box-shadow: 0 0 0 2000px rgba(0,0,0,0.28);
+}
+.camera-hint {
+  position: absolute; bottom: 14px; left: 0; right: 0;
+  text-align: center; font-size: 10px;
+  font-family: 'Courier New', monospace;
+  color: rgba(255,255,255,0.5); letter-spacing: 0.1em;
+}
+.camera-actions { display: flex; gap: 14px; }
+.cam-btn {
+  padding: 11px 28px; border-radius: 999px; border: none;
+  font-family: 'Courier New', monospace;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; cursor: pointer;
+  transition: transform 0.15s, opacity 0.15s;
+}
+.cam-btn:hover { opacity: 0.85; transform: scale(1.02); }
+.cam-btn:active { transform: scale(0.96); }
+.cam-capture { background: #9FE870; color: #163300; }
+.cam-cancel  { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.65); border: 1px solid rgba(255,255,255,0.18); }
+#captureCanvas { display: none; }
+
+/* ============================
+   BOARDING PASS PAGE
+   ============================ */
+.boarding-pass-wrap {
+  width: 100%; height: 100%;
+  background: #f0ebe0;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 24px;
+}
+
+/* Inner bordered rectangle — the actual boarding pass */
+.bp-inner {
+  flex: 1;
+  border: 1px solid #1a1a14;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #f0ebe0;
+}
+
+/* Full-width barcode bands — top and bottom */
+.bp-band {
+  width: 100%;
+  border-top: 1px solid #1a1a14;
+  border-bottom: 1px solid #1a1a14;
+  padding: 8px 14px 4px;
+  flex-shrink: 0;
+}
+.bp-band.top { border-top: none; }
+.bp-band.bottom { border-top: 1px solid #1a1a14; border-bottom: none; padding: 6px 14px 8px; }
+
+.bp-barcode { width: 100%; }
+.bp-barcode svg { display: block; }
+
+.bp-ref {
+  font-size: 6px;
+  font-family: 'Courier New', monospace;
+  color: #1a1a14;
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+  text-align: right;
+}
+
+/* Middle content area */
+.bp-body {
+  flex: 1;
+  padding: 6px 14px 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 0;
+}
+
+.bp-token-row {
+  display: flex; flex-direction: column; align-items: flex-end;
+}
+.bp-token-label {
+  font-size: 6.5px; font-family: 'Courier New', monospace;
+  letter-spacing: 0.16em; color: #1a1a14; text-transform: uppercase;
+}
+.bp-token-count {
+  font-size: 16px; font-family: 'Courier New', monospace;
+  font-weight: 700; color: #1a1a14; line-height: 1;
+}
+
+/* Code + city block — 40px gap between FRA and city name */
+.bp-destination {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+.bp-code-block {
+  display: inline-flex; align-items: center;
+  background: #1a1a14; color: #fff;
+  font-size: 17px;
+  font-family: 'Anton', sans-serif;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  line-height: 1.35;
+  align-self: flex-start;
+}
+.bp-city-name {
+  font-size: 44px;
+  font-family: 'Anton', sans-serif;
+  letter-spacing: 0.01em;
+  color: #1a1a14;
+  line-height: 0.92;
+  text-transform: uppercase;
+}
+
+/* Divider */
+.bp-divider { height: 1px; background: #1a1a14; margin: 0 0 4px; }
+
+/* Meta bottom section */
+.bp-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.bp-meta { display: flex; justify-content: space-between; }
+.bp-meta-col { display: flex; flex-direction: column; gap: 1px; }
+.bp-meta-label {
+  font-size: 6.5px; font-family: 'Courier New', monospace;
+  letter-spacing: 0.16em; color: #1a1a14; text-transform: uppercase;
+}
+.bp-meta-value {
+  font-size: 9px; font-family: 'Courier New', monospace;
+  font-weight: 700; color: #1a1a14;
+}
+.bp-meta-col.right { text-align: right; }
+
+.bp-passenger {
+  font-size: 7.5px; font-family: 'Courier New', monospace; color: #1a1a14;
+}
+.bp-passenger span { color: #1a1a14; }
+
+/* ============================
+   STAMP PAGE
+   ============================ */
+.stamp-page-wrap {
+  width: 100%; height: 100%;
+  background: #f5f0e6;
+  position: relative; overflow: hidden;
+}
+
+.stamp-item {
+  position: absolute;
+  transform-origin: center center;
+}
+
+/* ============================
+   NAV
+   ============================ */
+.nav { display: flex; align-items: center; gap: 20px; }
+.btn {
+  background: transparent;
+  border: 1px solid rgba(0,0,0,0.2);
+  padding: 9px 26px; font-size: 11px; letter-spacing: 0.16em;
+  cursor: pointer; font-family: monospace; color: #444;
+  border-radius: 4px; transition: background 0.15s; text-transform: uppercase;
+}
+.btn:hover:not(:disabled) { background: rgba(0,0,0,0.07); }
+.btn:disabled { opacity: 0.25; cursor: default; }
+.indicator {
+  font-size: 11px; letter-spacing: 0.18em; color: #666;
+  font-family: monospace; min-width: 120px; text-align: center;
+}
+
+/* Back button matches nav button style exactly */
+#back-btn {
+  position: fixed; top: 18px; left: 18px; z-index: 9999;
+  background: transparent;
+  border: 1px solid rgba(0,0,0,0.2);
+  padding: 9px 26px; font-size: 11px; letter-spacing: 0.16em;
+  cursor: pointer; font-family: monospace; color: #444;
+  border-radius: 4px; transition: background 0.15s; text-transform: uppercase;
+  text-decoration: none; display: inline-block;
+}
+#back-btn:hover { background: rgba(0,0,0,0.07); }
+</style>
+</head>
+<body>
+
+<a id="back-btn" href="wise-map.html">← Map</a>
+
+<!-- Camera Modal -->
+<div class="camera-modal" id="cameraModal">
+  <div class="camera-container">
+    <video class="camera-video" id="cameraVideo" autoplay playsinline muted></video>
+    <div class="face-guide"><div class="face-oval"></div></div>
+    <div class="camera-hint">Position your face within the oval</div>
+  </div>
+  <div class="camera-actions">
+    <button class="cam-btn cam-cancel" id="camCancel">Cancel</button>
+    <button class="cam-btn cam-capture" id="camCapture">Take Photo</button>
+  </div>
+</div>
+
+<canvas id="captureCanvas"></canvas>
+
+<div id="passport"></div>
+
+<nav class="nav">
+  <button class="btn" id="prevBtn" disabled>← prev</button>
+  <span class="indicator" id="indicator">pp. 1 – 2</span>
+  <button class="btn" id="nextBtn">next →</button>
+</nav>
+
+<script>
+/* ═══════════════════════════════════
+   CITY META
+   ═══════════════════════════════════ */
+const CITY_META = {
+  'Paris':           { code:'FRA', c1:'#002395', c2:'#ED2939', lm:'eiffel'     },
+  'London':          { code:'GBR', c1:'#012169', c2:'#C8102E', lm:'bigben'     },
+  'Tokyo':           { code:'JPN', c1:'#BC002D', c2:'#BC002D', lm:'fuji'       },
+  'New York':        { code:'USA', c1:'#B22234', c2:'#3C3B6E', lm:'statue'     },
+  'Dubai':           { code:'UAE', c1:'#00732F', c2:'#000000', lm:'burj'       },
+  'Sydney':          { code:'AUS', c1:'#00008B', c2:'#FF0000', lm:'opera'      },
+  'Barcelona':       { code:'ESP', c1:'#AA151B', c2:'#F1BF00', lm:'sagrada'    },
+  'Rome':            { code:'ITA', c1:'#009246', c2:'#CE2B37', lm:'colosseum'  },
+  'Amsterdam':       { code:'NLD', c1:'#AE1C28', c2:'#21468B', lm:'windmill'   },
+  'Berlin':          { code:'DEU', c1:'#000000', c2:'#DD0000', lm:'gate'       },
+  'Singapore':       { code:'SGP', c1:'#EF3340', c2:'#FFFFFF', lm:'marinabay'  },
+  'Bangkok':         { code:'THA', c1:'#A51931', c2:'#2D2A4A', lm:'temple'     },
+  'Istanbul':        { code:'TUR', c1:'#E30A17', c2:'#E30A17', lm:'sophia'     },
+  'Cairo':           { code:'EGY', c1:'#CE1126', c2:'#000000', lm:'pyramid'    },
+  'Mumbai':          { code:'IND', c1:'#FF9933', c2:'#138808', lm:'gateway'    },
+  'São Paulo':       { code:'BRA', c1:'#009C3B', c2:'#FEDF00', lm:'christ'     },
+  'Buenos Aires':    { code:'ARG', c1:'#74ACDF', c2:'#74ACDF', lm:'obelisco'   },
+  'Mexico City':     { code:'MEX', c1:'#006847', c2:'#CE1126', lm:'angel'      },
+  'Toronto':         { code:'CAN', c1:'#FF0000', c2:'#FF0000', lm:'cntower'    },
+  'Seoul':           { code:'KOR', c1:'#003478', c2:'#CD2E3A', lm:'palace'     },
+  'Beijing':         { code:'CHN', c1:'#DE2910', c2:'#FFDE00', lm:'greatwall'  },
+  'Hong Kong':       { code:'HKG', c1:'#DE2910', c2:'#DE2910', lm:'peak'       },
+  'Moscow':          { code:'RUS', c1:'#D52B1E', c2:'#0039A6', lm:'stbasil'    },
+  'Madrid':          { code:'ESP', c1:'#AA151B', c2:'#F1BF00', lm:'gate'       },
+  'Vienna':          { code:'AUT', c1:'#ED2939', c2:'#ED2939', lm:'stephans'   },
+  'Prague':          { code:'CZE', c1:'#D7141A', c2:'#11457E', lm:'castle'     },
+  'Athens':          { code:'GRC', c1:'#0D5EAF', c2:'#FFFFFF', lm:'parthenon'  },
+  'Lisbon':          { code:'PRT', c1:'#006600', c2:'#FF0000', lm:'torre'      },
+  'Stockholm':       { code:'SWE', c1:'#006AA7', c2:'#FECC02', lm:'vasa'       },
+  'Copenhagen':      { code:'DNK', c1:'#C60C30', c2:'#C60C30', lm:'mermaid'    },
+  'Oslo':            { code:'NOR', c1:'#EF2B2D', c2:'#002868', lm:'vigeland'   },
+  'Helsinki':        { code:'FIN', c1:'#003580', c2:'#FFFFFF', lm:'cathedral'  },
+  'Dublin':          { code:'IRL', c1:'#169B62', c2:'#FF883E', lm:'cliffs'     },
+  'Edinburgh':       { code:'SCO', c1:'#003087', c2:'#FFFFFF', lm:'castle'     },
+  'Brussels':        { code:'BEL', c1:'#000000', c2:'#EF3340', lm:'atomium'    },
+  'Geneva':          { code:'CHE', c1:'#FF0000', c2:'#FF0000', lm:'jetdeau'    },
+  'Zurich':          { code:'CHE', c1:'#FF0000', c2:'#FF0000', lm:'gate'       },
+  'Frankfurt':       { code:'DEU', c1:'#000000', c2:'#DD0000', lm:'gate'       },
+  'Budapest':        { code:'HUN', c1:'#CE2939', c2:'#477050', lm:'parliament' },
+  'Warsaw':          { code:'POL', c1:'#DC143C', c2:'#DC143C', lm:'palace'     },
+  'Bogotá':          { code:'COL', c1:'#FCD116', c2:'#CE1126', lm:'generic'    },
+  'Lima':            { code:'PER', c1:'#D91023', c2:'#D91023', lm:'machu'      },
+  'Santiago':        { code:'CHL', c1:'#D52B1E', c2:'#0039A6', lm:'andes'      },
+  'Cape Town':       { code:'ZAF', c1:'#007A4D', c2:'#DE3831', lm:'table'      },
+  'Johannesburg':    { code:'ZAF', c1:'#007A4D', c2:'#DE3831', lm:'table'      },
+  'Nairobi':         { code:'KEN', c1:'#006600', c2:'#BB0000', lm:'generic'    },
+  'Lagos':           { code:'NGA', c1:'#008751', c2:'#008751', lm:'generic'    },
+  'Delhi':           { code:'IND', c1:'#FF9933', c2:'#138808', lm:'taj'        },
+  'Karachi':         { code:'PAK', c1:'#01411C', c2:'#FFFFFF', lm:'generic'    },
+  'Kuala Lumpur':    { code:'MYS', c1:'#CC0001', c2:'#010066', lm:'petronas'   },
+  'Jakarta':         { code:'IDN', c1:'#CE1126', c2:'#CE1126', lm:'monas'      },
+  'Manila':          { code:'PHL', c1:'#0038A8', c2:'#CE1126', lm:'generic'    },
+  'Ho Chi Minh City':{ code:'VNM', c1:'#DA251D', c2:'#DA251D', lm:'generic'    },
+  'Shanghai':        { code:'CHN', c1:'#DE2910', c2:'#FFDE00', lm:'perltower'  },
+  'Taipei':          { code:'TWN', c1:'#FE0000', c2:'#000095', lm:'taipei101'  },
+  'Tehran':          { code:'IRN', c1:'#239F40', c2:'#DA0000', lm:'azadi'      },
+  'Tel Aviv':        { code:'ISR', c1:'#003399', c2:'#003399', lm:'generic'    },
+  'Riyadh':          { code:'SAU', c1:'#006C35', c2:'#FFFFFF', lm:'clocktower' },
+  'Abu Dhabi':       { code:'ARE', c1:'#00732F', c2:'#000000', lm:'sheikhzayed'},
+  'Auckland':        { code:'NZL', c1:'#00247D', c2:'#CC142B', lm:'skytower'   },
+  'Brisbane':        { code:'AUS', c1:'#00008B', c2:'#FF0000', lm:'opera'      },
+  'Melbourne':       { code:'AUS', c1:'#00008B', c2:'#FF0000', lm:'generic'    },
+  'Vancouver':       { code:'CAN', c1:'#FF0000', c2:'#FF0000', lm:'cntower'    },
+  'Montreal':        { code:'CAN', c1:'#FF0000', c2:'#FF0000', lm:'notredame'  },
+  'Chicago':         { code:'USA', c1:'#B22234', c2:'#3C3B6E', lm:'cloud'      },
+  'Los Angeles':     { code:'USA', c1:'#B22234', c2:'#3C3B6E', lm:'hollywood'  },
+  'San Francisco':   { code:'USA', c1:'#B22234', c2:'#3C3B6E', lm:'goldengate' },
+  'Miami':           { code:'USA', c1:'#B22234', c2:'#3C3B6E', lm:'statue'     },
+  'Washington DC':   { code:'USA', c1:'#B22234', c2:'#3C3B6E', lm:'capitol'    },
+};
+function getCityMeta(n) { return CITY_META[n]||{code:n.slice(0,3).toUpperCase(),c1:'#555',c2:'#888',lm:'generic'}; }
+
+/* ═══════════════════════════════════
+   STAMP POSITIONS & COLOURS (up to 12)
+   ═══════════════════════════════════ */
+const STAMP_POS = [
+  {x:168,y:52,r:-8},{x:54,y:62,r:10},{x:58,y:168,r:13},{x:176,y:162,r:-5},
+  {x:112,y:248,r:9},{x:192,y:272,r:-12},{x:44,y:290,r:5},{x:150,y:332,r:-7},
+  {x:80,y:114,r:-14},{x:200,y:114,r:11},{x:102,y:340,r:6},{x:194,y:212,r:-10},
+];
+
+// 12 distinct ink colours cycling across stamps
+const STAMP_COLOURS = [
+  '#C0392B','#1A5276','#1E8449','#7D3C98','#BA6A00','#117A8B',
+  '#922B21','#1F618D','#196F3D','#6C3483','#9A7D0A','#0E6655',
+];
+
+// 6 stamp shapes cycling
+// Each returns an SVG string for a 100×80 viewBox stamp
+function buildStampSVG(cityName, countryCode, dateStr, colour, shapeIdx, uid) {
+  const c = colour;
+  const font = "'Courier New', monospace";
+  const city = cityName.toUpperCase();
+  const country = countryCode.toUpperCase();
+  const shapes = ['circle','oval','rectangle','hexagon','octagon','badge'];
+  const shape = shapes[shapeIdx % shapes.length];
+
+  // Shared text elements used by most shapes
+  function textBlock(cx, topY, midY, botY, midSize, botSize) {
+    return `
+      <text x="${cx}" y="${topY}" text-anchor="middle" font-size="5.5" font-family="${font}" fill="${c}" letter-spacing="2" opacity="0.75">✈ ARRIVAL ✈</text>
+      <text x="${cx}" y="${midY}" text-anchor="middle" font-size="${midSize}" font-family="${font}" font-weight="700" fill="${c}" letter-spacing="1">${city}</text>
+      <text x="${cx}" y="${botY}" text-anchor="middle" font-size="${botSize}" font-family="${font}" fill="${c}" letter-spacing="1.5">${country}</text>
+      <text x="${cx}" y="${botY+8}" text-anchor="middle" font-size="5" font-family="${font}" fill="${c}" letter-spacing="1" opacity="0.8">${dateStr}</text>`;
+  }
+
+  if (shape === 'circle') {
+    // Classic round stamp
+    return `<svg width="90" height="90" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="45" cy="45" r="41" stroke="${c}" stroke-width="2" fill="none"/>
+      <circle cx="45" cy="45" r="36" stroke="${c}" stroke-width="0.8" fill="none" stroke-dasharray="2,2"/>
+      <path id="top_${uid}" d="M 8,45 A 37,37 0 0,1 82,45" fill="none"/>
+      <text font-size="5.5" font-family="${font}" fill="${c}" letter-spacing="3">
+        <textPath href="#top_${uid}" startOffset="12%">${city}</textPath>
+      </text>
+      <path id="bot_${uid}" d="M 10,47 A 35,35 0 0,0 80,47" fill="none"/>
+      <text font-size="5" font-family="${font}" fill="${c}" letter-spacing="2">
+        <textPath href="#bot_${uid}" startOffset="18%">${country}</textPath>
+      </text>
+      <text x="45" y="42" text-anchor="middle" font-size="9" font-family="${font}" font-weight="700" fill="${c}" letter-spacing="1">✈</text>
+      <text x="45" y="54" text-anchor="middle" font-size="5" font-family="${font}" fill="${c}" letter-spacing="1" opacity="0.85">${dateStr}</text>
+    </svg>`;
+  }
+
+  if (shape === 'oval') {
+    return `<svg width="100" height="76" viewBox="0 0 100 76" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="50" cy="38" rx="47" ry="34" stroke="${c}" stroke-width="2" fill="none"/>
+      <ellipse cx="50" cy="38" rx="41" ry="28" stroke="${c}" stroke-width="0.8" fill="none" stroke-dasharray="2,2"/>
+      <text x="50" y="24" text-anchor="middle" font-size="5.5" font-family="${font}" fill="${c}" letter-spacing="2" opacity="0.75">✈ ARRIVAL ✈</text>
+      <text x="50" y="37" text-anchor="middle" font-size="11" font-family="${font}" font-weight="700" fill="${c}" letter-spacing="1">${city}</text>
+      <text x="50" y="49" text-anchor="middle" font-size="5.5" font-family="${font}" fill="${c}" letter-spacing="2">${country}</text>
+      <text x="50" y="59" text-anchor="middle" font-size="5" font-family="${font}" fill="${c}" letter-spacing="1" opacity="0.85">${dateStr}</text>
+    </svg>`;
+  }
+
+  if (shape === 'rectangle') {
+    return `<svg width="96" height="72" viewBox="0 0 96 72" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="3" width="90" height="66" rx="4" stroke="${c}" stroke-width="2" fill="none"/>
+      <rect x="8" y="8" width="80" height="56" rx="2" stroke="${c}" stroke-width="0.8" fill="none" stroke-dasharray="2,2"/>
+      <text x="48" y="22" text-anchor="middle" font-size="5.5" font-family="${font}" fill="${c}" letter-spacing="2" opacity="0.75">UNITED STATES OF AMERICA</text>
+      <line x1="12" y1="26" x2="84" y2="26" stroke="${c}" stroke-width="0.6" stroke-dasharray="2,2"/>
+      <text x="48" y="40" text-anchor="middle" font-size="13" font-family="${font}" font-weight="700" fill="${c}" letter-spacing="1">${city}</text>
+      <line x1="12" y1="46" x2="84" y2="46" stroke="${c}" stroke-width="0.6" stroke-dasharray="2,2"/>
+      <text x="48" y="57" text-anchor="middle" font-size="5" font-family="${font}" fill="${c}" letter-spacing="1" opacity="0.85">${dateStr} · IMMIGRATION</text>
+    </svg>`;
+  }
+
+  if (shape === 'hexagon') {
+    return `<svg width="90" height="84" viewBox="0 0 90 84" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="45,3 84,23 84,61 45,81 6,61 6,23" stroke="${c}" stroke-width="2" fill="none"/>
+      <polygon points="45,9 78,27 78,57 45,75 12,57 12,27" stroke="${c}" stroke-width="0.8" fill="none" stroke-dasharray="2,2"/>
+      <text x="45" y="27" text-anchor="middle" font-size="5.5" font-family="${font}" fill="${c}" letter-spacing="2" opacity="0.75">✈ ARRIVAL ✈</text>
+      <text x="45" y="44" text-anchor="middle" font-size="12" font-family="${font}" font-weight="700" fill="${c}" letter-spacing="1">${city}</text>
+      <text x="45" y="56" text-anchor="middle" font-size="5.5" font-family="${font}" fill="${c}" letter-spacing="2">${country}</text>
+      <text x="45" y="66" text-anchor="middle" font-size="5" font-family="${font}" fill="${c}" letter-spacing="1" opacity="0.85">${dateStr}</text>
+    </svg>`;
+  }
+
+  if (shape === 'octagon') {
+    return `<svg width="88" height="88" viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="26,4 62,4 84,26 84,62 62,84 26,84 4,62 4,26" stroke="${c}" stroke-width="2" fill="none"/>
+      <polygon points="29,10 59,10 78,29 78,59 59,78 29,78 10,59 10,29" stroke="${c}" stroke-width="0.8" fill="none" stroke-dasharray="2,2"/>
+      <text x="44" y="26" text-anchor="middle" font-size="5.5" font-family="${font}" fill="${c}" letter-spacing="2" opacity="0.75">ARRIVAL</text>
+      <text x="44" y="44" text-anchor="middle" font-size="13" font-family="${font}" font-weight="700" fill="${c}" letter-spacing="1">${city}</text>
+      <text x="44" y="57" text-anchor="middle" font-size="5.5" font-family="${font}" fill="${c}" letter-spacing="2">${country}</text>
+      <text x="44" y="67" text-anchor="middle" font-size="5" font-family="${font}" fill="${c}" letter-spacing="1" opacity="0.85">${dateStr}</text>
+    </svg>`;
+  }
+
+  // badge — scalloped / wavy-edge circle
+  return `<svg width="90" height="90" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+    <path d="M45,4 Q52,4 55,10 Q58,4 65,4 Q72,6 72,13 Q78,13 81,19 Q86,22 84,29 Q90,32 89,39 Q90,46 85,50 Q88,57 84,62 Q82,69 75,70 Q74,77 67,79 Q62,85 55,83 Q50,88 45,86 Q40,88 35,83 Q28,85 23,79 Q16,77 15,70 Q8,69 6,62 Q2,57 5,50 Q0,46 1,39 Q0,32 6,29 Q4,22 9,19 Q12,13 18,13 Q18,6 25,4 Q32,4 35,10 Q38,4 45,4Z" stroke="${c}" stroke-width="1.5" fill="none"/>
+    <circle cx="45" cy="45" r="32" stroke="${c}" stroke-width="0.8" fill="none" stroke-dasharray="2,2"/>
+    <text x="45" y="30" text-anchor="middle" font-size="5.5" font-family="${font}" fill="${c}" letter-spacing="2" opacity="0.75">✈ ARRIVAL ✈</text>
+    <text x="45" y="44" text-anchor="middle" font-size="11" font-family="${font}" font-weight="700" fill="${c}" letter-spacing="1">${city}</text>
+    <text x="45" y="55" text-anchor="middle" font-size="5.5" font-family="${font}" fill="${c}" letter-spacing="1.5">${country}</text>
+    <text x="45" y="64" text-anchor="middle" font-size="5" font-family="${font}" fill="${c}" letter-spacing="1" opacity="0.85">${dateStr}</text>
+  </svg>`;
+}
+
+/* ─── Stamp page ─── */
+function buildStampPage(cityName,tokens,pageNum){
+  const meta=getCityMeta(cityName);
+  const count=Math.min(tokens.length,STAMP_POS.length);
+  let stamps='';
+
+  for(let i=0;i<count;i++){
+    const p=STAMP_POS[i];
+    const ts=tokens[i].ts;
+    const d=new Date(ts);
+    const dateStr=`${['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getMonth()]} ${pad2(d.getDate())} ${d.getFullYear()}`;
+    const colour=STAMP_COLOURS[i%STAMP_COLOURS.length];
+    const shapeIdx=i;
+    const uid=`st${pageNum}_${i}`;
+    // Stamp sizing varies slightly by shape — account for different SVG dimensions
+    const shapeW=[90,100,96,90,88,90];
+    const shapeH=[90,76,72,84,88,90];
+    const sw=shapeW[shapeIdx%6];
+    const sh=shapeH[shapeIdx%6];
+    const svgStr=buildStampSVG(cityName,meta.code,dateStr,colour,shapeIdx,uid);
+    // Offset so stamp centre lands on pos
+    stamps+=`<div class="stamp-item" style="left:${p.x-sw/2}px;top:${p.y-sh/2}px;transform:rotate(${p.r}deg);">${svgStr}</div>`;
+  }
+
+  return $(`<div class="page">
+    <div class="stamp-page-wrap">
+      <div class="fore-edge r"></div>
+      ${stamps}
+      <div class="pnum r">${pageNum}</div>
+    </div>
+  </div>`);
+}
+
+/* ═══════════════════════════════════
+   HELPERS
+   ═══════════════════════════════════ */
+function hashStr(s){let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193);}return(h>>>0);}
+function getDeviceId(){let id=localStorage.getItem('wise_device_id');if(!id){const seed=[navigator.userAgent,navigator.language,screen.width+'x'+screen.height,screen.colorDepth,Intl.DateTimeFormat().resolvedOptions().timeZone,navigator.hardwareConcurrency||'',navigator.deviceMemory||''].join('|');id=hashStr(seed).toString(16);localStorage.setItem('wise_device_id',id);}return id;}
+function isFirstTime(){return!localStorage.getItem('wise_identity');}
+function getIdentity(){try{return JSON.parse(localStorage.getItem('wise_identity')||'null');}catch{return null;}}
+function saveIdentity(obj){localStorage.setItem('wise_identity',JSON.stringify(obj));}
+function tokenKey(c){return'wise_tokens_'+c.toLowerCase().replace(/\s/g,'_');}
+function getTokens(c){try{return JSON.parse(localStorage.getItem(tokenKey(c))||'[]');}catch{return[];}}
+function addToken(c,ts){const a=getTokens(c);a.push({ts,deviceId:getDeviceId()});localStorage.setItem(tokenKey(c),JSON.stringify(a));return a;}
+function getAllCitiesWithTokens(){const out=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(!k||!k.startsWith('wise_tokens_'))continue;const slug=k.replace('wise_tokens_','');const name=Object.keys(CITY_META).find(n=>n.toLowerCase().replace(/\s/g,'_')===slug)||slug.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());const tokens=getTokens(name);if(tokens.length)out.push({cityName:name,tokens});}return out;}
+function pad2(n){return String(n).padStart(2,'0');}
+function fmtDate(ts){const d=new Date(ts);return`${pad2(d.getDate())}.${pad2(d.getMonth()+1)}.${d.getFullYear()}`;}
+function fmtTime(ts){const d=new Date(ts);return`${pad2(d.getHours())}:${pad2(d.getMinutes())}`;}
+function hexToRgb(hex){const r=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);return r?{r:parseInt(r[1],16),g:parseInt(r[2],16),b:parseInt(r[3],16)}:null;}
+function barcodeId(c){const h=hashStr(c+getDeviceId()).toString(16).toUpperCase().padStart(12,'0');return`PW-${h.slice(0,4)}-${h.slice(4,8)}-${h.slice(8,12)}`;}
+
+function makeBarcodeHTML(w,h,seed){
+  let bars='',x=0,r=hashStr(seed+'bc');
+  while(x<w){const bw=((r%3)+1)*(w/70);r=hashStr(String(r));if(r%3!==0){bars+=`<rect x="${x.toFixed(1)}" y="0" width="${bw.toFixed(1)}" height="${h}" fill="#1a1a14"/>`;}x+=bw*1.3;}
+  return`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${bars}</svg>`;
+}
+
+/* ═══════════════════════════════════
+   BUILD PAGES
+   ═══════════════════════════════════ */
+let totalPages = 20;
+
+function buildAllPages(){
+  const $p=$('#passport');
+  $p.empty();
+  const identity=getIdentity();
+  const cities=getAllCitiesWithTokens();
+
+  // Page 1 — identity       ) spread 1: pp. 1–2
+  // Page 2 — blank right    )
+  // Page 3 — boarding pass  ) spread 2: pp. 3–4  ← both visible at once
+  // Page 4 — stamp          )
+  // Page 5 — boarding pass  ) spread 3: pp. 5–6
+  // Page 6 — stamp          )  …and so on.
+
+  $p.append(buildIdentityPage(identity));
+  $p.append('<div class="page"><div class="p-right"><div class="fore-edge r"></div><div class="pnum r">2</div></div></div>');
+
+  let pn=3;
+  cities.forEach(({cityName,tokens})=>{
+    $p.append(buildBoardingPassPage(cityName,tokens,pn));
+    $p.append(buildStampPage(cityName,tokens,pn+1));
+    pn+=2;
+  });
+
+  const min=20;
+  totalPages=Math.max(min,pn%2===0?pn-1:pn);
+  while(pn<=totalPages){
+    if(pn%2===1){$p.append(`<div class="page"><div class="p-left"><div class="fore-edge l"></div><div class="pnum l">${pn}</div></div></div>`);}
+    else{$p.append(`<div class="page"><div class="p-right"><div class="fore-edge r"></div><div class="pnum r">${pn}</div></div></div>`);}
+    pn++;
+  }
+}
+
+/* ─── Identity page ─── */
+function buildIdentityPage(identity){
+  const $page=$('<div class="page"></div>');
+  if(identity){
+    $page.append(`<div class="identity-page">
+      <div class="fore-edge l"></div>
+      <div class="identity-inner">
+        <div class="photo-zone" style="border:none;cursor:default;pointer-events:none;">
+          <canvas class="ascii-canvas" id="savedPhotoCanvas"></canvas>
+          <div class="photo-placeholder" style="display:${identity.photoData?'none':'flex'}">
+            <svg width="30" height="26" viewBox="0 0 34 30" fill="none"><path d="M12 4L10 8H4C2.9 8 2 8.9 2 10V26C2 27.1 2.9 28 4 28H30C31.1 28 32 27.1 32 26V10C32 8.9 31.1 8 30 8H24L22 4H12Z" stroke="#c0392b" stroke-width="1.5" fill="rgba(192,57,43,0.08)"/><circle cx="17" cy="18" r="6" stroke="#c0392b" stroke-width="1.5"/><circle cx="17" cy="18" r="3" fill="rgba(192,57,43,0.28)"/></svg>
+          </div>
+        </div>
+        <div class="name-fields">
+          <div class="name-group"><span class="name-label">First Name</span><div class="name-value" style="border-bottom:1px solid rgba(26,46,26,0.15);">${identity.firstName}</div></div>
+          <div class="name-group right"><span class="name-label">Last Name</span><div class="name-value" style="text-align:right;border-bottom:1px solid rgba(26,46,26,0.15);">${identity.lastName}</div></div>
+        </div>
+        <button class="save-btn" style="opacity:0.65;cursor:default;pointer-events:none;">✓ Identity Saved</button>
+      </div>
+      <div class="pnum l">1</div>
+    </div>`);
+    if(identity.photoData){
+      setTimeout(()=>{
+        const c=document.getElementById('savedPhotoCanvas');
+        if(!c)return;
+        const img=new Image();
+        img.onload=()=>{c.width=img.width;c.height=img.height;c.getContext('2d').drawImage(img,0,0);c.style.display='block';};
+        img.src=identity.photoData;
+      },200);
+    }
+  } else {
+    $page.append(`<div class="identity-page">
+      <div class="fore-edge l"></div>
+      <div class="identity-inner">
+        <div class="photo-zone" id="photoZone" title="Click to take passport photo">
+          <div class="photo-placeholder" id="photoPlaceholder">
+            <svg width="30" height="26" viewBox="0 0 34 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 4L10 8H4C2.9 8 2 8.9 2 10V26C2 27.1 2.9 28 4 28H30C31.1 28 32 27.1 32 26V10C32 8.9 31.1 8 30 8H24L22 4H12Z" stroke="#c0392b" stroke-width="1.5" fill="rgba(192,57,43,0.08)"/>
+              <circle cx="17" cy="18" r="6" stroke="#c0392b" stroke-width="1.5"/>
+              <circle cx="17" cy="18" r="3" fill="rgba(192,57,43,0.28)"/>
+            </svg>
+            <span class="photo-hint">Add passport image</span>
+          </div>
+          <canvas class="ascii-canvas" id="asciiOutput"></canvas>
+        </div>
+        <div class="name-fields">
+          <div class="name-group"><span class="name-label">First Name</span><input class="name-value" id="firstNameInput" type="text" placeholder="Enter first name" autocomplete="off" spellcheck="false"></div>
+          <div class="name-group right"><span class="name-label">Last Name</span><input class="name-value" id="lastNameInput" type="text" placeholder="Enter last name" autocomplete="off" spellcheck="false"></div>
+        </div>
+        <button class="save-btn" id="saveBtn">Save Identity</button>
+      </div>
+      <div class="pnum l">1</div>
+    </div>`);
+    setTimeout(bindIdentityForm,100);
+  }
+  return $page;
+}
+
+/* ─── Boarding pass page ─── */
+function buildBoardingPassPage(cityName,tokens,pageNum){
+  const meta=getCityMeta(cityName);
+  const latest=tokens[tokens.length-1];
+  const identity=getIdentity();
+  const passenger=identity?`${identity.firstName} ${identity.lastName}`:'—';
+  const bid=barcodeId(cityName);
+  return $(`<div class="page">
+    <div class="boarding-pass-wrap">
+      <div class="fore-edge l"></div>
+      <div class="bp-inner">
+
+        <div class="bp-band top">
+          <div class="bp-barcode">${makeBarcodeHTML(196,24,cityName+'top')}</div>
+          <div class="bp-ref">${bid}</div>
+        </div>
+
+        <div class="bp-body">
+          <div class="bp-token-row">
+            <span class="bp-token-label">Token Collected</span>
+            <span class="bp-token-count">${String(tokens.length).padStart(2,'0')}</span>
+          </div>
+
+          <div class="bp-destination">
+            <div class="bp-code-block">${meta.code}</div>
+            <div class="bp-city-name">${cityName.toUpperCase()}</div>
+          </div>
+
+          <div class="bp-footer">
+            <div class="bp-divider"></div>
+            <div class="bp-meta">
+              <div class="bp-meta-col">
+                <span class="bp-meta-label">Date Collected</span>
+                <span class="bp-meta-value">${fmtDate(latest.ts)}</span>
+              </div>
+              <div class="bp-meta-col right">
+                <span class="bp-meta-label">Time Collected</span>
+                <span class="bp-meta-value">${fmtTime(latest.ts)}</span>
+              </div>
+            </div>
+            <div class="bp-passenger"><span>PASSENGER: </span>${passenger.toUpperCase()}</div>
+          </div>
+        </div>
+
+        <div class="bp-band bottom">
+          <div class="bp-ref" style="text-align:left;">${bid}-${String(tokens.length+1).padStart(3,'0')}</div>
+          <div class="bp-barcode">${makeBarcodeHTML(196,24,cityName+'bot')}</div>
+        </div>
+
+      </div>
+      <div class="pnum l">${pageNum}</div>
+    </div>
+  </div>`);
+}
+
+/* ═══════════════════════════════════
+   TURN.JS
+   ═══════════════════════════════════ */
+function initTurn(){
+  try{$('#passport').turn('destroy');}catch(e){}
+  buildAllPages();
+  $('#passport').turn({
+    width:560,height:380,autoCenter:true,elevation:50,
+    gradients:true,duration:800,display:'double',page:1,
+    when:{turned:function(e,p){updateNav(p);}}
+  });
+  updateNav(1);
+}
+
+function updateNav(page){
+  $('#prevBtn').prop('disabled',page<=1);
+  $('#nextBtn').prop('disabled',page>=totalPages-1);
+  const hi=page>=totalPages-1?totalPages:page+1;
+  $('#indicator').text(`pp. ${page} \u2013 ${hi}`);
+}
+
+$('#nextBtn').on('click',()=>{try{$('#passport').turn('next');}catch(e){}});
+$('#prevBtn').on('click',()=>{try{$('#passport').turn('previous');}catch(e){}});
+
+function goToPage(n){setTimeout(()=>{try{$('#passport').turn('page',n);updateNav(n);}catch(e){}},450);}
+
+/* ═══════════════════════════════════
+   IDENTITY FORM — original logic
+   ═══════════════════════════════════ */
+let photoTaken=false, capturedPhotoData=null, stream=null;
+
+function bindIdentityForm(){
+  const photoZone=document.getElementById('photoZone');
+  const saveBtn=document.getElementById('saveBtn');
+  if(!photoZone||!saveBtn)return;
+
+  function check(){
+    const ok=photoTaken&&document.getElementById('firstNameInput').value.trim()&&document.getElementById('lastNameInput').value.trim();
+    saveBtn.classList.toggle('active',!!ok);
+  }
+  document.getElementById('firstNameInput').addEventListener('input',check);
+  document.getElementById('lastNameInput').addEventListener('input',check);
+  photoZone.addEventListener('click',openCamera);
+
+  saveBtn.addEventListener('click',function(){
+    if(!saveBtn.classList.contains('active'))return;
+    const identity={firstName:document.getElementById('firstNameInput').value.trim(),lastName:document.getElementById('lastNameInput').value.trim(),photoData:capturedPhotoData||null};
+    saveIdentity(identity);
+    saveBtn.textContent='✓ Identity Saved';
+    saveBtn.style.opacity='0.65';
+    saveBtn.style.pointerEvents='none';
+    if(pendingCityPage)setTimeout(()=>goToPage(pendingCityPage),300);
+  });
+}
+
+/* ═══════════════════════════════════
+   CAMERA — original logic
+   ═══════════════════════════════════ */
+function openCamera(){
+  document.getElementById('cameraModal').classList.add('open');
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:640,height:800},audio:false})
+    .then(s=>{stream=s;document.getElementById('cameraVideo').srcObject=s;})
+    .catch(err=>{document.getElementById('cameraModal').classList.remove('open');alert('Camera unavailable: '+err.message);});
+}
+function stopCamera(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}document.getElementById('cameraVideo').srcObject=null;}
+
+document.getElementById('camCancel').addEventListener('click',()=>{stopCamera();document.getElementById('cameraModal').classList.remove('open');});
+document.getElementById('camCapture').addEventListener('click',()=>{
+  const video=document.getElementById('cameraVideo');
+  const canvas=document.getElementById('captureCanvas');
+  const vw=video.videoWidth||640,vh=video.videoHeight||800;
+  canvas.width=vw;canvas.height=vh;
+  const ctx=canvas.getContext('2d');
+  ctx.save();ctx.translate(vw,0);ctx.scale(-1,1);ctx.drawImage(video,0,0,vw,vh);ctx.restore();
+  stopCamera();document.getElementById('cameraModal').classList.remove('open');
+  renderDotMatrix(canvas);
+});
+
+/* DOT-MATRIX — original logic */
+function renderDotMatrix(srcCanvas){
+  const zone=document.getElementById('photoZone');
+  const OUT_W=zone?(zone.clientWidth||152):152;
+  const OUT_H=zone?(zone.clientHeight||170):170;
+  const out=document.getElementById('asciiOutput');
+  out.width=OUT_W;out.height=OUT_H;
+  const outCtx=out.getContext('2d');
+  const COLS=60,ROWS=Math.round(COLS*(OUT_H/OUT_W));
+  const tmp=document.createElement('canvas');tmp.width=COLS;tmp.height=ROWS;
+  const tCtx=tmp.getContext('2d');
+  const sw=srcCanvas.width,sh=srcCanvas.height,aspect=OUT_W/OUT_H;
+  let cw=sh*aspect,ch=sh,cx=(sw-cw)/2,cy=0;
+  if(cw>sw){cw=sw;ch=sw/aspect;cx=0;cy=(sh-ch)/2;}
+  tCtx.drawImage(srcCanvas,cx,cy,cw,ch,0,0,COLS,ROWS);
+  const imgData=tCtx.getImageData(0,0,COLS,ROWS).data;
+  outCtx.fillStyle='#f5f0e6';outCtx.fillRect(0,0,OUT_W,OUT_H);
+  const cellW=OUT_W/COLS,cellH=OUT_H/ROWS;
+  for(let pass=0;pass<2;pass++){
+    outCtx.fillStyle=pass===0?'rgba(168,44,28,0.16)':'#b83020';
+    for(let row=0;row<ROWS;row++){
+      for(let col=0;col<COLS;col++){
+        const i=(row*COLS+col)*4;
+        const lum=(0.299*imgData[i]+0.587*imgData[i+1]+0.114*imgData[i+2])/255;
+        const maxR=Math.min(cellW,cellH)*0.60;
+        const radius=maxR*Math.pow(1-lum,0.78);
+        if(radius<0.22)continue;
+        outCtx.beginPath();
+        outCtx.arc((col+0.5)*cellW,(row+0.5)*cellH,pass===0?radius*1.45:radius,0,Math.PI*2);
+        outCtx.fill();
+      }
+    }
+  }
+  const grad=outCtx.createRadialGradient(OUT_W/2,OUT_H/2,OUT_H*0.28,OUT_W/2,OUT_H/2,OUT_H*0.72);
+  grad.addColorStop(0,'rgba(245,240,230,0)');grad.addColorStop(1,'rgba(245,240,230,0.4)');
+  outCtx.fillStyle=grad;outCtx.fillRect(0,0,OUT_W,OUT_H);
+  document.getElementById('photoPlaceholder').style.display='none';
+  out.style.display='block';
+  if(zone){zone.style.border='none';zone.style.cursor='default';zone.removeEventListener('click',openCamera);zone.title='';}
+  photoTaken=true;
+  capturedPhotoData=out.toDataURL('image/jpeg',0.7);
+  const f=document.getElementById('firstNameInput'),l=document.getElementById('lastNameInput'),s=document.getElementById('saveBtn');
+  if(f&&l&&s)s.classList.toggle('active',!!(photoTaken&&f.value.trim()&&l.value.trim()));
+}
+
+/* ═══════════════════════════════════
+   URL PARAMS + ENTRY POINT
+   ═══════════════════════════════════ */
+const urlParams=new URLSearchParams(location.search);
+const incomingCity=urlParams.get('city')?decodeURIComponent(urlParams.get('city')):null;
+const incomingTs=urlParams.get('ts')?decodeURIComponent(urlParams.get('ts')):new Date().toISOString();
+const fromMap=urlParams.get('from')==='map';
+let pendingCityPage=null;
+
+function cityPageNumber(cityName){
+  const cities=getAllCitiesWithTokens();
+  const idx=cities.findIndex(c=>c.cityName===cityName);
+  if(idx===-1)return null;
+  return 3+idx*2;
+}
+
+$(function(){
+  if(incomingCity&&fromMap)addToken(incomingCity,incomingTs);
+  initTurn();
+  if(!isFirstTime()&&incomingCity){
+    const pg=cityPageNumber(incomingCity);
+    if(pg)goToPage(pg);
+  } else if(isFirstTime()&&incomingCity){
+    pendingCityPage=cityPageNumber(incomingCity);
+  }
+});
+</script>
+</body>
+</html>
