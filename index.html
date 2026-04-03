@@ -574,7 +574,7 @@ function openModal(cityName, ts) {
 
 function buildPassportURL(cityName, ts) {
   // passport.html lives alongside this file
-  const base = location.origin + location.pathname.replace('wise-map.html', 'wise-passport.html');
+  const base = location.origin + location.pathname.replace('index.html', 'wise-passport.html');
   return `${base}?city=${encodeURIComponent(cityName)}&ts=${encodeURIComponent(ts)}&from=map`;
 }
 
